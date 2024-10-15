@@ -11,13 +11,18 @@ zig build
 coming soon!
 
 ## Curent and Planned Features
-NOTE: This will be filled out once the basic CLI/format is layed out currently a placeholder!
 | Feature | Status |
 | :------: | :-: |
-| completed | ✅ |
-| WIP but usable | ☑️ |
-| planned soon/WIP | ⭕ |
-| maybe someday | ❌ |
+| intergrated launch MC command | ❌ |
+| modrinth host support | ⭕ |
+| curseforge host support | ❌ |
+| neoforge loader support | ❌ |
+| forge loader support | ❌ |
+| fabric loader support | ❌ |
+| quilt loader support | ❌ |
+| mrpack export support | ❌ |
+| curseforge pack export support | ❌ |
+| multimc export support | ❌ |
 
 Key
 - completed = ✅
