@@ -1,0 +1,20 @@
+.{
+    .name = "packme",
+
+    .version = "0.0.0",
+    .minimum_zig_version = "0.13.0",
+
+    .dependencies = .{
+        .curl = .{
+            .url = "https://github.com/jiacai2050/zig-curl/archive/7fc813629dd1f5ee29fbe1d7c2572b6186f13e4e.tar.gz",
+            .hash = "1220204a66c6ae12c5688edfa74091532b4a5243cb13c9bf5eca72b1d34ae511cd16",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
