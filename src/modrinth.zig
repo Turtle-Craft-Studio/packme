@@ -4,10 +4,10 @@ const http = @import("http.zig");
 const modrinth = @import("modrinth.zig");
 const iowrap = @import("iowrap.zig");
 
-const GenericHost = @import("modhost.zig").GenericHost;
+const GenericHost = @import("mod_hosts.zig").GenericHost;
 
 // gets the modrinth commands as a generichost
-pub fn generichost() GenericHost {
+pub fn generic_host() GenericHost {
     return GenericHost {
         .id = "modrinth",
         .vtable = .{

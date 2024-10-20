@@ -16,7 +16,7 @@ coming soon!
 | intergrated launch MC command | ❌ |
 | modrinth host support | ⭕ |
 | curseforge host support | ❌ |
-| neoforge loader support | ❌ |
+| neoforge loader support | ⭕ |
 | forge loader support | ❌ |
 | fabric loader support | ❌ |
 | quilt loader support | ❌ |

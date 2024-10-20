@@ -1,10 +1,11 @@
 const std = @import("std");
 const curl = @import("curl");
 
-const http = @import("http.zig");
-const modrinth = @import("modrinth.zig");
-const modhost = @import("modhost.zig");
 const iowrap = @import("iowrap.zig");
+
+const mod_hosts = @import("mod_hosts.zig");
+const loaders = @import("loaders.zig");
+const utils = @import("utils.zig");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -17,16 +18,22 @@ pub fn main() !void {
     defer easy.deinit();
 
     var args = try std.process.argsWithAllocator(allocator);
-    if(args.next() == null) {
-        io.errorl("no first arg? what the sigma did you do...", .{});
-        return;
+    const working_dir = args.next().?;
+    io.printl("{s}", .{ working_dir });
+
+    const mc_versions = try utils.get_mc_versions(allocator, &easy, io);
+    io.printl("latest mc release: {s}", .{ mc_versions.latest.release });
+
+    const neo_versions = loaders.neoforge_loader.vtable.versions(allocator, &easy, io);
+
+    io.printl("Neoforge versions: ", .{});
+    for(neo_versions) | version | {
+        io.printl(" {s}", .{ version });
     }
 
-    const modrinth_host =  modrinth.generichost();
-    const modhosts = [1]modhost.GenericHost{ modrinth_host };
 
     if(args.next()) | command | {
-        for(modhosts) | host | {
+        for(mod_hosts.hosts) | host | {
             if(std.mem.eql(u8, command, host.id)) {
                 if(args.next()) | action | {
                     if(std.mem.eql(u8,action, "about")) host.vtable.about(&easy, &args, io)
@@ -36,6 +43,7 @@ pub fn main() !void {
                 return;
             }
         }
+        
         io.errorl("invalid command {s}", .{ command });
         return;
     }
