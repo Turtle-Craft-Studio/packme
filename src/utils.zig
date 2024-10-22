@@ -38,3 +38,64 @@ pub fn get_mc_versions(alloc: Allocator, easy: *const curl.Easy, io: iowrap.IO) 
         return error.invalid_response_from_mojang;
     }
 }
+
+
+pub const SemVer = struct {
+    major: i32,
+    minor: i32,
+    patch: i32,
+    extended: []u8, 
+}; // not sure this is "correct" but its good enough for packme's usecase
+pub const SemVerError = error {
+    InvalidString,
+    FailedToParseInt
+};
+// small but important note, if your original string gets deallocated the "extended" portion of the SemVer will as well!
+pub fn string_to_semver(str: []u8) SemVerError!SemVer {
+    const ParsingStages = enum {
+        major, minor, patch,
+        extended, complete,
+
+        pub fn next(stage: @This()) @This() {
+            switch (stage) {
+                .major => { return @This().minor; },
+                .minor => { return @This().patch; },
+                .patch => { return @This().extended; },
+                .extended => { return @This().complete; },
+                .complete => unreachable,
+            }
+        }
+    };
+
+    var bookmark: usize = 0; // used for slicing the string without creating extra memory allocations
+    var parse_stage = ParsingStages.major;
+    var sem_ver: SemVer = undefined;
+    for(str, 0..) | c, i | {
+        if(parse_stage != .extended and parse_stage != .complete) {
+            if(c == '.' or c == '-' or i == str.len-1) {
+                const sliced = if(i == str.len-1) str[bookmark..(i+1)] else str[bookmark..i];
+                const int = std.fmt.parseInt(i32, sliced, 10) catch { return SemVerError.FailedToParseInt; };
+
+                switch (parse_stage) {
+                    .major => { sem_ver.major = int; },
+                    .minor => { sem_ver.minor = int; },
+                    .patch => { sem_ver.patch = int; },
+                    else => unreachable,
+                }
+
+                bookmark = i+1;
+                parse_stage = parse_stage.next();
+            }
+        } 
+        if(parse_stage == .extended) {
+            if(i != str.len-1) {
+                sem_ver.extended = str[i..str.len];
+            } else {
+                sem_ver.extended = str[str.len..str.len];
+            }
+            parse_stage = parse_stage.next();
+        }
+    }
+    if(parse_stage != .complete) return SemVerError.InvalidString; //TODO better erroring?
+    return sem_ver;
+}

@@ -25,11 +25,10 @@ pub fn main() !void {
     io.printl("latest mc release: {s}", .{ mc_versions.latest.release });
 
     const neo_versions = loaders.neoforge_loader.vtable.versions(allocator, &easy, io);
-
-    io.printl("Neoforge versions: ", .{});
-    for(neo_versions) | version | {
-        io.printl(" {s}", .{ version });
-    }
+    const latest = neo_versions[neo_versions.len-1];
+    io.printl("latest neoforge version: {s}", .{ latest });
+    const latest_sem = try utils.string_to_semver(latest);
+    io.printl("as semver: major: {} minor: {} patch: {} extended: {s}", .{ latest_sem.major, latest_sem.minor, latest_sem.patch, latest_sem.extended });
 
 
     if(args.next()) | command | {
