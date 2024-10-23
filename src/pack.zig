@@ -1,22 +1,88 @@
-pub const Loaders = enum {
-    neoforge,
-    //fabric,
-    //forge,
-    //quilt,
-};
+const std = @import("std");
+const curl = @import("curl");
+const iowrap = @import("iowrap.zig");
+const utils = @import("utils.zig");
+const loaders = @import("loaders.zig");
 
 pub const PackInfo = struct {
     format_ver: i32 = 1,
-    pack_name: []u8 = "New Pack",
-    mc_ver: []u8 = "1.21.1",
-    loader: Loaders = .neoforge,
-    loader_ver: "21.1.72",
+    pack_name: []const u8 = "New Pack",
+    mc_ver: []const u8 = "1.21.1",
+    loader: []const u8 = "neoforge",
+    loader_ver: []const u8 = "21.1.72",
 };
 
-pub fn create_new() PackInfo {
+pub const PackCreationError = error {
+    InvalidDirectory,
+    InvalidMinecraftVersion,
+    NoLoaderVersionFound,
+    UnknownModLoader,
+    FailedToGetMinecraftVersions,
+};
 
+// starts a creation wizard for a new packme pack
+pub fn create_new(allocator: std.mem.Allocator, io: iowrap.IO, easy: *const curl.Easy) PackCreationError!PackInfo {
+    io.color_green();
+    io.printl("Welcome to the packme creation wizard!(default)", .{});
+    io.reset();
+
+    const default_pack_name = "New Pack";
+    io.print("pack name({s}):", .{ default_pack_name });
+    const input_pack_name = io.in(allocator) catch default_pack_name;
+    const pack_name = if(input_pack_name.len == 0)default_pack_name else input_pack_name;
+
+    const mc_versions = utils.get_mc_versions(allocator, easy, io) catch | err |{
+        io.errorl("failed to get minecraft versions! {}", .{ err });
+        return error.FailedToGetMinecraftVersions;
+    };
+
+    io.print("minecraft version({s}):", .{ mc_versions.latest.release });
+    const input_mc_ver_id = io.in(allocator) catch mc_versions.latest.release;
+    const mc_ver_id = if(input_mc_ver_id.len == 0) mc_versions.latest.release else input_mc_ver_id;
+
+    // verify minecraft version
+    if(mc_versions.get(mc_ver_id)) | mc_ver | {
+        const default_loader : []const u8 = if(std.mem.eql(u8, mc_ver.type, "release")) "neoforge" else "unknown";
+    
+        io.print("loader({s}):", .{ default_loader });
+        const input_loader_id = io.in(allocator) catch default_loader;
+        const loader_id = if(input_loader_id.len == 0) default_loader else input_loader_id;
+
+        const loader = loaders.get(loader_id) catch {
+            io.errorl("unknown mod loader {s}", .{ loader_id });
+            io.errorl("if you think support for this loader should be added open a issue on github. otherwise create a packme.json file manually", .{});
+            return error.UnknownModLoader;
+        };
+
+        if(loader.vtable.latest(io, mc_ver, loader.vtable.versions(allocator, easy, io))) | latest_loader_ver  | {
+            io.print("loader version({s}):", .{ latest_loader_ver });
+            const input_loader_ver = io.in(allocator) catch latest_loader_ver;
+            const loader_ver = if(input_loader_ver.len == 0) latest_loader_ver else input_loader_ver;
+
+            return PackInfo{
+                .pack_name = pack_name,
+                .mc_ver = mc_ver.id,
+                .loader = loader.id,
+                .loader_ver = loader_ver,
+            };
+
+        } else {
+            io.errorl("no {s} verion found for {s}", .{ loader_id, mc_ver_id });
+            return error.NoLoaderVersionFound;
+        }
+
+    } else {
+        io.errorl("unknown minecraft version {s}", .{ mc_ver_id });
+        io.errorl("if this is not an official mojang version you must manually create a packme.json file", .{});
+        return error.InvalidMinecraftVersion;
+    }
 }
 
 pub fn load_pack() PackInfo {
     
+}
+
+// saves pack info to disk as a json file
+pub fn save_pack_info(info: PackInfo) void {
+    _ = info;
 }

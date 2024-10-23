@@ -7,7 +7,6 @@ const iowrap = @import("iowrap.zig");
 
 const fallback_mc_ver = "1.21.1";
 
-
 pub const LatestVersions = struct {
     release: []u8,
     snapshot: []u8,
@@ -22,8 +21,14 @@ pub const McVersion = struct {
 pub const McVersions = struct {
     latest: LatestVersions,
     versions: []McVersion,
-};
 
+    pub fn get(self: @This(), id: []u8) ?McVersion {
+        for(self.versions) | ver | {
+            if(std.mem.eql(u8, ver.id, id)) return ver;
+        }
+        return null;
+    }
+};
 pub fn get_mc_versions(alloc: Allocator, easy: *const curl.Easy, io: iowrap.IO) !McVersions {
     const mojang_resp = try easy.get("https://launchermeta.mojang.com/mc/game/version_manifest.json");
     defer mojang_resp.deinit();
@@ -39,19 +44,18 @@ pub fn get_mc_versions(alloc: Allocator, easy: *const curl.Easy, io: iowrap.IO) 
     }
 }
 
-
 pub const SemVer = struct {
     major: i32,
     minor: i32,
     patch: i32,
-    extended: []u8, 
+    extended: []const u8, 
 }; // not sure this is "correct" but its good enough for packme's usecase
 pub const SemVerError = error {
     InvalidString,
     FailedToParseInt
 };
 // small but important note, if your original string gets deallocated the "extended" portion of the SemVer will as well!
-pub fn string_to_semver(str: []u8) SemVerError!SemVer {
+pub fn string_to_semver(str: []const u8) SemVerError!SemVer {
     const ParsingStages = enum {
         major, minor, patch,
         extended, complete,

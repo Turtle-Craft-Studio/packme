@@ -2,10 +2,9 @@ const std = @import("std");
 const curl = @import("curl");
 
 const iowrap = @import("iowrap.zig");
-
 const mod_hosts = @import("mod_hosts.zig");
 const loaders = @import("loaders.zig");
-const utils = @import("utils.zig");
+const pack = @import("pack.zig");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -21,16 +20,6 @@ pub fn main() !void {
     const working_dir = args.next().?;
     io.printl("{s}", .{ working_dir });
 
-    const mc_versions = try utils.get_mc_versions(allocator, &easy, io);
-    io.printl("latest mc release: {s}", .{ mc_versions.latest.release });
-
-    const neo_versions = loaders.neoforge_loader.vtable.versions(allocator, &easy, io);
-    const latest = neo_versions[neo_versions.len-1];
-    io.printl("latest neoforge version: {s}", .{ latest });
-    const latest_sem = try utils.string_to_semver(latest);
-    io.printl("as semver: major: {} minor: {} patch: {} extended: {s}", .{ latest_sem.major, latest_sem.minor, latest_sem.patch, latest_sem.extended });
-
-
     if(args.next()) | command | {
         for(mod_hosts.hosts) | host | {
             if(std.mem.eql(u8, command, host.id)) {
@@ -43,7 +32,21 @@ pub fn main() !void {
             }
         }
         
+        if(std.mem.eql(u8, command, "init")) {
+            if(args.next()) | next_arg | {
+                if(!std.mem.eql(u8, next_arg, "help")) io.errorl("invalid option: {s}", .{ next_arg });
+                io.printl("packme init - initializes a directory and starts the packme creation wizard", .{});
+                return;
+            }
+            const new_project = try pack.create_new(allocator, io, &easy);
+            io.color_green();
+            io.printl("Created a new packme project named {s} using {s}({s}) on {s}", .{ new_project.pack_name, new_project.loader, new_project.loader_ver, new_project.mc_ver });
+            io.reset();
+            return;
+        }
+
         io.errorl("invalid command {s}", .{ command });
         return;
     }
+    io.errorl("no command given!", .{}); //TODO when we add a help command we should notify the user to use that for help
 }
