@@ -83,6 +83,34 @@ pub fn load_pack() PackInfo {
 }
 
 // saves pack info to disk as a json file
-pub fn save_pack_info(info: PackInfo) void {
-    _ = info;
+pub fn save_pack_info(info: PackInfo, io: iowrap.IO, warn_before_overwrite: bool) !bool {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const out_json = try std.json.stringifyAlloc(allocator, info, .{ .whitespace = .indent_tab });
+
+    var file_found = true;
+    std.fs.cwd().access("packme.json", .{}) catch | err | {
+        switch (err) {
+            std.fs.Dir.AccessError.FileNotFound => { file_found = false; },
+            else => { return err; },
+        }
+    };
+    if(file_found) {
+        if(warn_before_overwrite) {
+            io.color_yellow();
+            io.print("packme.json found! would you like to overwrite it y/n: ", .{});
+            io.reset();
+            const in = io.in(allocator) catch return false;
+            if(in.len != 1) { return false; }
+            if(in[0] == 'n') { return false; }
+        }
+        try std.fs.cwd().deleteFile("packme.json"); //TODO do we need to do this?
+    }
+
+    const new_file = try std.fs.cwd().createFile("packme.json", .{});
+    _ = try new_file.write(out_json);
+    new_file.close();
+    return true;
 }

@@ -17,8 +17,7 @@ pub fn main() !void {
     defer easy.deinit();
 
     var args = try std.process.argsWithAllocator(allocator);
-    const working_dir = args.next().?;
-    io.printl("{s}", .{ working_dir });
+    _ = args.next().?;
 
     if(args.next()) | command | {
         for(mod_hosts.hosts) | host | {
@@ -38,9 +37,24 @@ pub fn main() !void {
                 io.printl("packme init - initializes a directory and starts the packme creation wizard", .{});
                 return;
             }
-            const new_project = try pack.create_new(allocator, io, &easy);
+            const new_pack_info = pack.create_new(allocator, io, &easy) catch | err | {
+                io.errorl("failed to create new packme pack! : {}", .{ err });
+                return;
+            };
+
+            const was_saved = pack.save_pack_info(new_pack_info, io, true) catch | err | {
+                io.errorl("failed to save packinfo : {}", .{ err });
+                return;
+            };
+
+            if(!was_saved) {
+                io.color_yellow();
+                io.printl("warning: didn't save packme pack info!", .{});
+                io.reset();
+            }
+
             io.color_green();
-            io.printl("Created a new packme project named {s} using {s}({s}) on {s}", .{ new_project.pack_name, new_project.loader, new_project.loader_ver, new_project.mc_ver });
+            io.printl("Created a new packme project named {s} using {s}({s}) on {s}", .{ new_pack_info.pack_name, new_pack_info.loader, new_pack_info.loader_ver, new_pack_info.mc_ver });
             io.reset();
             return;
         }
