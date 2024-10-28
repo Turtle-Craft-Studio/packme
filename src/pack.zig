@@ -20,6 +20,46 @@ pub const PackCreationError = error {
     FailedToGetMinecraftVersions,
 };
 
+pub fn init_command(allocator: std.mem.Allocator, io: iowrap.IO, args: *std.process.ArgIterator, easy: *const curl.Easy) void {
+    if(args.next()) | next_arg | {
+        if(!std.mem.eql(u8, next_arg, "help")) io.errorl("invalid option: {s}", .{ next_arg });
+        io.printl("packme init - initializes a directory and starts the packme creation wizard", .{});
+        return;
+    }
+    const new_pack_info = create_new(allocator, io, easy) catch | err | {
+        io.errorl("failed to create new packme pack! : {}", .{ err });
+        return;
+    };
+
+    const was_saved = save_pack_info(new_pack_info, io, true) catch | err | {
+        io.errorl("failed to save packinfo : {}", .{ err });
+        return;
+    };
+
+    if(!was_saved) {
+        io.color_yellow();
+        io.printl("warning: didn't save packme pack info!", .{});
+        io.reset();
+    }
+
+    io.color_green();
+    io.printl("Created a new packme project named {s} using {s}({s}) on {s}", .{ new_pack_info.pack_name, new_pack_info.loader, new_pack_info.loader_ver, new_pack_info.mc_ver });
+    io.reset();
+}
+// prints info about the packme pack
+pub fn info_command(allocator: std.mem.Allocator, io: iowrap.IO) void {
+    const pack_info_error =  load_pack_info(allocator, io);
+    if(pack_info_error) | pack_info | {
+        io.printl("packme.json:", .{});
+        io.printl(" Format Version: {}", .{ pack_info.format_ver });
+        io.printl(" Name: {s}", .{ pack_info.pack_name });
+        io.printl(" MC Version: {s}", .{ pack_info.mc_ver });
+        io.printl(" Loader: {s}", .{ pack_info.loader });
+        io.printl(" Loader Version: {s}", .{ pack_info.loader_ver });
+    } else | err | {
+        io.errorl("failed to load packme.json : {}", .{ err });
+    }
+}
 // starts a creation wizard for a new packme pack
 pub fn create_new(allocator: std.mem.Allocator, io: iowrap.IO, easy: *const curl.Easy) PackCreationError!PackInfo {
     io.color_green();
@@ -78,8 +118,20 @@ pub fn create_new(allocator: std.mem.Allocator, io: iowrap.IO, easy: *const curl
     }
 }
 
-pub fn load_pack() PackInfo {
-    
+// loads a pack info file from disk
+pub fn load_pack_info(allocator: std.mem.Allocator, io: iowrap.IO) !PackInfo {
+    const file = std.fs.cwd().openFile("packme.json", .{}) catch | err | {
+        switch (err) {
+            std.fs.Dir.OpenError.FileNotFound => {
+                io.errorl("no packme.json found. please run packme init", .{});
+                return err;
+            },
+            else => { return err; }
+        }
+    };
+    const json = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
+    const pack_info = try std.json.parseFromSliceLeaky(PackInfo, allocator, json, .{});
+    return pack_info;
 }
 
 // saves pack info to disk as a json file

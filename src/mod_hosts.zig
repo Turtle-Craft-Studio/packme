@@ -14,5 +14,11 @@ pub const GenericHost = struct {
 
     pub const VTable = struct {
         about: *const fn (easy: *const curl.Easy, args: *std.process.ArgIterator, io: iowrap.IO) void, // print project information about a mod
+        help: *const fn(args: *std.process.ArgIterator, io: iowrap.IO) void,
     };
+
+    pub fn GenericHelpMessage(io: iowrap.IO) void {
+        io.printl("packme (modhost) : ", .{});
+        io.printl(" - about (mod_id) : prints some basic information about the mod", .{});
+    }
 };

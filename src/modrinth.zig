@@ -12,9 +12,16 @@ pub fn generic_host() GenericHost {
         .id = "modrinth",
         .vtable = .{
             .about = about,
+            .help = help,
         }
     };
 }
+
+fn help(args: *std.process.ArgIterator,  io: iowrap.IO) void {
+    _ = args;
+    GenericHost.GenericHelpMessage(io);
+}
+
 
 pub const Project = struct {
     slug: []const u8,
