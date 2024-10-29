@@ -3,13 +3,19 @@ const curl = @import("curl");
 const iowrap = @import("iowrap.zig");
 const utils = @import("utils.zig");
 const loaders = @import("loaders.zig");
+const mod_hosts = @import("mod_hosts.zig");
 
 pub const PackInfo = struct {
-    format_ver: i32 = 1,
+    format_ver: u32 = 1,
     pack_name: []const u8 = "New Pack",
     mc_ver: []const u8 = "1.21.1",
     loader: []const u8 = "neoforge",
     loader_ver: []const u8 = "21.1.72",
+};
+
+pub const Mod = struct {
+    format_ver: u32 = 1,
+    host: []mod_hosts.HostedMod
 };
 
 pub const PackCreationError = error {
@@ -58,6 +64,42 @@ pub fn info_command(allocator: std.mem.Allocator, io: iowrap.IO) void {
         io.printl(" Loader Version: {s}", .{ pack_info.loader_ver });
     } else | err | {
         io.errorl("failed to load packme.json : {}", .{ err });
+    }
+}
+pub fn list_mods_command(allocator: std.mem.Allocator, io: iowrap.IO) void {
+    var mod_dir = open_mods_dir() catch | err | {
+        io.errorl("could not open mods directory! : {}", .{ err });
+        return;
+    };
+    defer  mod_dir.close();
+
+    var mod_iter = mod_dir.iterate();
+    while(
+        mod_iter.next() catch | err | { 
+            io.errorl("failed to iter mods directory! : {}", .{ err });
+            return;
+        }
+    ) | entry | {
+        if(entry.kind != .file) {
+            io.warningl("warning: {s} is not a file, may not be indexed correctly", .{ entry.name });
+            continue;
+        }
+        const ext = std.fs.path.extension(entry.name);
+        if(ext.len != 0) {
+            io.warningl("warning: {s} is a {s}, advance indexing features will not work with this mod", .{ entry.name, ext });
+            continue;
+        }
+
+        const mod = load_mod_from_disk(allocator, entry.name) catch | err | {
+            io.errorl("could not index mod {s} : {}", .{ entry.name, err });
+            continue;
+        };
+
+        io.printl("{s}:", .{ entry.name });
+        for(mod.host) | hosted_mod | {
+            io.printl(" - {s}: {s} - {s}({s})", .{ hosted_mod.host, hosted_mod.id, hosted_mod.version_name, hosted_mod.version_id });
+        }
+        
     }
 }
 // starts a creation wizard for a new packme pack
@@ -165,4 +207,57 @@ pub fn save_pack_info(info: PackInfo, io: iowrap.IO, warn_before_overwrite: bool
     _ = try new_file.write(out_json);
     new_file.close();
     return true;
+}
+
+pub const ModDirError = std.fs.Dir.OpenError || std.fs.Dir.MakeError;
+
+// don't forget to close it!
+pub fn open_mods_dir() ModDirError!std.fs.Dir {
+    const open = std.fs.cwd().openDir("mods", .{ .iterate = true });
+    if(open) | dir | return dir
+    else | err | {
+        if(err == std.fs.Dir.OpenError.FileNotFound) {
+          try std.fs.cwd().makeDir("mods");
+          // we just try to open it again now that we made the directory
+          return open_mods_dir();
+        } else return err;
+    }
+}
+
+// add a mod to disk OR adds a host to a mod on disk
+pub fn mod_add_or_add_host(allocator: std.mem.Allocator, aliased_id: []const u8, hosted_mod: mod_hosts.HostedMod) !void {
+    //TODO: handle overriding of existing mods in a most graceful way. i.e get user confirmation before doing so
+    //TODO: handle multiple mod host
+    var mod_dir = try open_mods_dir();
+    defer  mod_dir.close();
+
+    if(mod_dir.access(aliased_id, .{})) {
+        try mod_dir.deleteFile(aliased_id);
+    } else | err | {
+        if(err != std.fs.Dir.OpenError.FileNotFound)
+            return err;
+    }
+
+    var hosted_mods : [1]mod_hosts.HostedMod = .{ hosted_mod  };
+    const mod = Mod {
+        .host = hosted_mods[0..1],
+    };
+    
+    const out_json = try std.json.stringifyAlloc(allocator, mod, .{ .whitespace = .indent_tab });
+    
+    const new_file = try mod_dir.createFile(aliased_id, .{});
+    defer new_file.close();
+    _ = try new_file.write(out_json);
+}
+
+pub fn load_mod_from_disk(allocator: std.mem.Allocator, aliased_id: []const u8) !Mod {
+    var mod_dir = try open_mods_dir();
+    defer mod_dir.close();
+
+    const file = try mod_dir.openFile(aliased_id, .{});
+    defer file.close();
+
+    const json = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
+    const mod = try std.json.parseFromSliceLeaky(Mod, allocator, json, .{});
+    return mod;
 }

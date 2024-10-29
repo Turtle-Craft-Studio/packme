@@ -14,7 +14,7 @@ coming soon!
 | Feature | Status |
 | :------: | :-: |
 | intergrated launch MC command | ❌ |
-| modrinth host support | ⭕ |
+| modrinth host support | ☑️ |
 | curseforge host support | ❌ |
 | neoforge loader support | ⭕ |
 | forge loader support | ❌ |

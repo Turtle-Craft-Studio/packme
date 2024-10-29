@@ -29,6 +29,11 @@ pub const IO = struct {
         self.printl(format, args);
         self.reset();
     }
+    pub fn warningl(self: Self, comptime format: []const u8, args: anytype) void {
+        self.color_yellow();
+        self.printl(format, args);
+        self.reset();
+    }
     
     pub fn color_red(self: Self) void {
         self.stdout.print("\x1b[31m", .{}) catch @panic("stdout failure");
